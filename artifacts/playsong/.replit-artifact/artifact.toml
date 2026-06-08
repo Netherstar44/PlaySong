@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "PlaySong"
+version = "1.0.0"
+id = "artifacts/playsong"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24946
+
+[services.development]
+run = "pnpm --filter @workspace/playsong run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/playsong", "run", "build" ]
+publicDir = "artifacts/playsong/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24946"
+BASE_PATH = "/"

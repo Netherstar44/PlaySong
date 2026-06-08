@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: PlaySong - Collaborative party music platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: rooms
+    description: Room management
+  - name: songs
+    description: Song search and management
 paths:
   /healthz:
     get:
@@ -24,6 +28,128 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /rooms:
+    post:
+      operationId: createRoom
+      tags: [rooms]
+      summary: Create a new party room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomInput"
+      responses:
+        "201":
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+
+  /rooms/active:
+    get:
+      operationId: getActiveRooms
+      tags: [rooms]
+      summary: Get active rooms (LAN discovery)
+      responses:
+        "200":
+          description: List of active rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoomSummary"
+
+  /rooms/{code}:
+    get:
+      operationId: getRoom
+      tags: [rooms]
+      summary: Get room by code
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "404":
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /rooms/{code}/stats:
+    get:
+      operationId: getRoomStats
+      tags: [rooms]
+      summary: Get room party stats
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Room statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomStats"
+
+  /rooms/{code}/history:
+    get:
+      operationId: getRoomHistory
+      tags: [rooms]
+      summary: Get played songs history
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Song history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Song"
+
+  /search:
+    get:
+      operationId: searchSongs
+      tags: [songs]
+      summary: Search songs via YouTube
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchResult"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +160,235 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    RoomInput:
+      type: object
+      required:
+        - hostNickname
+      properties:
+        hostNickname:
+          type: string
+        settings:
+          $ref: "#/components/schemas/RoomSettings"
+
+    RoomSettings:
+      type: object
+      properties:
+        maxSongsPerUser:
+          type: integer
+          default: 3
+        requireApproval:
+          type: boolean
+          default: false
+        skipVotePercent:
+          type: integer
+          default: 60
+        explicitFilter:
+          type: boolean
+          default: false
+        partyCoins:
+          type: boolean
+          default: true
+
+    Guest:
+      type: object
+      required:
+        - id
+        - nickname
+        - avatar
+        - coins
+        - songsAdded
+        - isBlocked
+      properties:
+        id:
+          type: string
+        nickname:
+          type: string
+        avatar:
+          type: string
+        coins:
+          type: integer
+        songsAdded:
+          type: integer
+        isBlocked:
+          type: boolean
+
+    Song:
+      type: object
+      required:
+        - id
+        - youtubeId
+        - title
+        - artist
+        - duration
+        - thumbnail
+        - requestedBy
+        - status
+        - priority
+        - reactions
+      properties:
+        id:
+          type: string
+        youtubeId:
+          type: string
+        title:
+          type: string
+        artist:
+          type: string
+        duration:
+          type: integer
+        thumbnail:
+          type: string
+        bpm:
+          type: ["integer", "null"]
+        requestedBy:
+          type: string
+        requestedByNickname:
+          type: string
+        dedication:
+          type: ["string", "null"]
+        reactions:
+          $ref: "#/components/schemas/SongReactions"
+        skipVotes:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [pending, approved, playing, played, rejected]
+        priority:
+          type: integer
+
+    SongReactions:
+      type: object
+      required:
+        - fire
+        - heart
+        - skull
+      properties:
+        fire:
+          type: integer
+        heart:
+          type: integer
+        skull:
+          type: integer
+
+    Room:
+      type: object
+      required:
+        - id
+        - code
+        - hostId
+        - guests
+        - queue
+        - settings
+        - createdAt
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        hostId:
+          type: string
+        hostNickname:
+          type: string
+        guests:
+          type: array
+          items:
+            $ref: "#/components/schemas/Guest"
+        queue:
+          type: array
+          items:
+            $ref: "#/components/schemas/Song"
+        currentSong:
+          oneOf:
+            - $ref: "#/components/schemas/Song"
+            - type: "null"
+        settings:
+          $ref: "#/components/schemas/RoomSettings"
+        createdAt:
+          type: string
+
+    RoomSummary:
+      type: object
+      required:
+        - code
+        - hostNickname
+        - guestCount
+        - createdAt
+      properties:
+        code:
+          type: string
+        hostNickname:
+          type: string
+        guestCount:
+          type: integer
+        createdAt:
+          type: string
+
+    RoomStats:
+      type: object
+      required:
+        - totalSongsPlayed
+        - topRequesters
+        - topSongs
+        - guestCount
+      properties:
+        totalSongsPlayed:
+          type: integer
+        topRequesters:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequesterStat"
+        topSongs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Song"
+        guestCount:
+          type: integer
+
+    RequesterStat:
+      type: object
+      required:
+        - nickname
+        - avatar
+        - songsAdded
+        - totalReactions
+      properties:
+        nickname:
+          type: string
+        avatar:
+          type: string
+        songsAdded:
+          type: integer
+        totalReactions:
+          type: integer
+
+    SearchResult:
+      type: object
+      required:
+        - youtubeId
+        - title
+        - artist
+        - duration
+        - thumbnail
+      properties:
+        youtubeId:
+          type: string
+        title:
+          type: string
+        artist:
+          type: string
+        duration:
+          type: integer
+        thumbnail:
+          type: string
+        bpm:
+          type: ["integer", "null"]
